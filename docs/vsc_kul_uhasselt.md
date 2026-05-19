@@ -2,7 +2,9 @@
 
 > **NB:** You will need an [account](https://docs.vscentrum.be/en/latest/access/getting_access.html#required-steps-to-get-access) to use the HPC cluster to run the pipeline.
 
-1. Install Nextflow on the cluster
+This profile ships an in-tree Nextflow plugin, [`nf-vsc-kul-uhasselt`](../plugins/nf-vsc-kul-uhasselt/), which handles partition / `--clusters` / `--account` / `--gres` selection. The plugin is auto-loaded by the profile (`plugins { id 'nf-vsc-kul-uhasselt@0.1.0' }`), so the config itself contains no custom Groovy and is valid under Nextflow v26+ strict syntax.
+
+1. Install Nextflow on the cluster (minimum **v25.04**):
 
 ```bash
 conda create --name nf-core python=3.12 nf-core nextflow
@@ -12,10 +14,16 @@ conda create --name nf-core python=3.12 nf-core nextflow
 A nextflow module is available that can be loaded `module load Nextflow` but it does not support plugins. So it's not recommended
 :::
 
-2. Set up the environment variables in `~/.bashrc` or `~/.bash_profile`:
+2. Set up the environment variables in `~/.bashrc` or `~/.bash_profile`. The plugin reads three of them at startup:
+
+| Env var                | Purpose                                                          | Required? |
+| ---------------------- | ---------------------------------------------------------------- | --------- |
+| `SLURM_ACCOUNT`        | Your SLURM credential account for non-dedicated submissions      | **Yes**   |
+| `VSC_DEDICATED_QUEUES` | Comma-separated list of dedicated partitions you have access to  | Optional  |
+| `VSC_SCRATCH`          | Scratch dir; used for singularity cache and apptainer tmp/cache  | **Yes**   |
 
 :::note
-If you have access to dedicated nodes, you can export these as a command separated list. These queues will only be used if specified task requirements are not available in the normal partitions but they are available in dedicated partitions. AMD is considered a dedicated partition.
+If you have access to dedicated nodes, set `VSC_DEDICATED_QUEUES` to a comma-separated list. The plugin will route eligible jobs there instead of capping their runtime to 72h. The supported names are `dedicated_big_bigmem`, `dedicated_rega_gpu`, `amd`, `dedicated_big_gpu`, `dedicated_big_gpu_h100`.
 :::
 
 ```bash
@@ -36,17 +44,9 @@ export NXF_CONDA_CACHEDIR="$VSC_SCRATCH/miniconda3/envs"
 
 # Optional tower key
 # export TOWER_ACCESS_TOKEN="<your_tower_access_token>"
-# export NXF_VER="<version>"      # make sure it's larger then 24.10.1
 ```
 
-:::warning
-The current config is setup with array jobs. Make sure nextflow version >= 24.10.1, read [array jobs in nextflow](https://www.nextflow.io/docs/latest/process.html#array) you can do this in
-
-```bash
-export NXF_VER=24.10.1
-```
-
-:::
+You can also override any of these from the config (e.g. for testing) via `executor.'vsc-kul-uhasselt'.{scratchDir,account,dedicatedQueues}`. Queue-selection thresholds (`timeThreshold`, `geniusMemThreshold`, `wiceMemThreshold`) are exposed the same way — see the plugin [README](../plugins/nf-vsc-kul-uhasselt/README.md).
 
 3. Make the submission script.
 
